@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <packageId>phildeluca.belazy</packageId>
+  <name>Ketjak's Be Lazy</name>
+  <author>Ketjak</author>
+  <supportedVersions>
+    <li>1.5</li>
+  </supportedVersions>
+  <description>Two gizmos on the selected pawns: "Go to Bed" and "Get Rec'd".
+
+Go to Bed sends each selected pawn to sleep right now, beating the timetable. Each pawn finds its own bed the way vanilla would - its own assigned bed first, then an unclaimed one - and, failing that, a carried bedroll if you use the Use Bedrolls mod, or a spot on the floor. It sleeps until 100% rest or until something would normally wake it; nothing about what wakes a pawn is changed.
+
+Get Rec'd sends each selected pawn to do the best recreation it can find right now, ranked the same way vanilla ranks a pawn's own choice of joy giver. Every press ranks the same way, for every pawn, down to whatever minimal recreation is actually available to it. A pawn for whom nothing answers is named on screen.
+
+Neither gizmo is offered to a drafted pawn.</description>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <!-- Use Bedrolls is NOT a declared dependency, and deliberately so -
+         bl-architecture.md section 3.7: Be Lazy never names it, never
+         patches it and never puts its DLL in lib\. It reaches Use Bedrolls'
+         own trigger point by calling RimWorld.JobGiver_GetRest itself,
+         which Use Bedrolls patches; if that mod is absent the same call
+         just returns whatever vanilla would have. -->
+  </loadAfter>
+  <!-- One Harmony patch: Pawn.GetGizmos, postfix. bl-architecture.md
+       section 6 and 3.11. Documents live in the umbrella folder prefixed
+       bl-, never here - CLAUDE.md forbids a README or a CLAUDE.md in a
+       mod folder. -->
+</ModMetaData>

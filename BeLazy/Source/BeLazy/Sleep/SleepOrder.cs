@@ -1,0 +1,98 @@
+using System.Collections.Generic;
+using RimWorld;
+using Verse;
+using Verse.AI;
+
+namespace BeLazy.Sleep
+{
+    // "Go to Bed" - bl-architecture.md 5.1. Each selected pawn is found a
+    // target and issued a job independently; one pawn's result never
+    // decides another's - the group rule CLAUDE.md states for Do Not Be
+    // Lazy, which applies here too.
+    public static class SleepOrder
+    {
+        public static void Execute(IEnumerable<Pawn> pawns)
+        {
+            foreach (Pawn pawn in pawns)
+            {
+                if (!Qualifies(pawn))
+                {
+                    continue;
+                }
+
+                TrySendToBed(pawn);
+            }
+        }
+
+        private static bool Qualifies(Pawn pawn)
+        {
+            if (pawn == null || !pawn.Spawned || pawn.Dead || pawn.Downed)
+            {
+                return false;
+            }
+
+            if (!pawn.RaceProps.Humanlike || pawn.Faction != Faction.OfPlayer)
+            {
+                return false;
+            }
+
+            if (pawn.Drafted)
+            {
+                // The gizmo is already withheld for a drafted pawn (decision
+                // 17) - this is a guard against a queued selection changing
+                // between the click and this running.
+                return false;
+            }
+
+            if (pawn.InMentalState)
+            {
+                return false;
+            }
+
+            // Decision 19: nothing for a pawn already asleep. Whether the
+            // order is issued or not, they sleep until they would normally
+            // wake or be woken - the drop is deliberate and silent.
+            if (pawn.jobs?.curDriver != null && pawn.jobs.curDriver.asleep)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static void TrySendToBed(Pawn pawn)
+        {
+            Job job = BedFinder.FindTarget(pawn);
+            if (job == null)
+            {
+                // The order failed for this pawn. bl-architecture.md 5.1
+                // records no on-screen message for a sleep failure - only
+                // "Get Rec'd" (decision 6) does.
+                return;
+            }
+
+            bool isPlaceBedrollJob = job.def != null && job.def.defName == "PlaceBedroll";
+
+            // A PlaceBedroll job must not be modified - its driver starts
+            // its own LayDown job afterwards, and that is the job that
+            // would need the flag, which Be Lazy has no handle to (5.1).
+            if (!isPlaceBedrollJob)
+            {
+                job.forceSleep = true;
+            }
+
+            // TryTakeOrderedJob sets playerForced itself (decision 8 is
+            // free) and enqueues this job ahead of anything the think tree
+            // could insert (5.4) - never EndCurrentJob.
+            if (!pawn.jobs.TryTakeOrderedJob(job))
+            {
+                return;
+            }
+
+            if (!isPlaceBedrollJob)
+            {
+                ForceSleepWatch.Watch(pawn);
+            }
+        }
+    }
+}
