@@ -8,12 +8,12 @@ namespace BeLazy.Core
     // RimWarOdds/Core/RimWarOddsSettings.cs.
     public class BeLazySettings : ModSettings
     {
-        public bool verboseLogging = false;
+        public bool verboseLogging = true;
 
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref verboseLogging, "verboseLogging", false);
+            Scribe_Values.Look(ref verboseLogging, "verboseLogging", true);
 
             // Same trap RimWar Odds' settings hit - a saved "on" reads as
             // off until the settings window is opened unless it is synced

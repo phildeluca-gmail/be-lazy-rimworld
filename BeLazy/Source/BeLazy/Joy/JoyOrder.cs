@@ -3,6 +3,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Logger = BeLazy.Core.Logger;
 
 namespace BeLazy.Joy
 {
@@ -27,6 +28,12 @@ namespace BeLazy.Joy
                 {
                     continue;
                 }
+
+                // ORDERED, bl-architecture.md 5.2a - mirrors SleepOrder's
+                // ORDERED line. Fires once per qualifying pawn per press,
+                // before TryRank replaces whatever they were already doing.
+                Logger.Message(pawn.LabelShortCap + ": Get Rec'd ordered - was "
+                    + DescribeCurrentActivity(pawn) + ".");
 
                 if (!TryRank(pawn, givers))
                 {
@@ -73,6 +80,15 @@ namespace BeLazy.Joy
             }
 
             return pawn.needs?.joy != null;
+        }
+
+        // Same helper as SleepOrder's - Verse.AI.JobDriver.GetReport() is
+        // public virtual, confirmed 2026-09-19 against
+        // lib\Assembly-CSharp.dll.
+        private static string DescribeCurrentActivity(Pawn pawn)
+        {
+            JobDriver driver = pawn.jobs?.curDriver;
+            return driver != null ? driver.GetReport() : "nothing in particular";
         }
 
         // Exactly vanilla's own JobGiver_GetJoy.TryGiveJob ranking (3.14):
@@ -129,6 +145,11 @@ namespace BeLazy.Joy
 
                 if (pawn.jobs.TryTakeOrderedJob(job))
                 {
+                    // bl-architecture.md 5.2b - watch this pawn so the job
+                    // is ended once Need_Joy.CurLevel is full, which some
+                    // JobDrivers (RimWorld.JobDriver_Reading, confirmed by
+                    // decompiling) otherwise skip for a playerForced job.
+                    JoyWatch.Watch(pawn);
                     return true;
                 }
             }

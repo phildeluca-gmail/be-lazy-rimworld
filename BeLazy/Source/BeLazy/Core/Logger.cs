@@ -14,8 +14,13 @@ namespace BeLazy.Core
     // Loaded() always writes, once, at mod construction. Message() only
     // writes when the verbose setting is on, and every call site is
     // commented at the call with how often it can fire - none of them are
-    // inside the per-pawn joy-giver ranking loop (JoyOrder.TryRank) or the
-    // per-pawn sleep watch loop (ForceSleepWatch.GameComponentTick).
+    // inside the per-pawn joy-giver ranking loop (JoyOrder.TryRank). Four
+    // call sites added 2026-09-19 for the order-event log lines
+    // (bl-architecture.md 5.1a, 5.2a): one in SleepOrder.Execute and one in
+    // JoyOrder.Execute, each once per qualifying pawn per press; two in
+    // ForceSleepWatch.GameComponentTick, each at most once per watched
+    // pawn, at the tick its state changes, not per tick of the 60-tick
+    // loop itself.
     public static class Logger
     {
         public static bool VerboseLogging = false;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BeLazy.Core;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -20,8 +21,25 @@ namespace BeLazy.Sleep
                     continue;
                 }
 
+                // ORDERED, bl-architecture.md 5.1a. Fires once per
+                // qualifying pawn per press, before anything about their
+                // current job changes - TryTakeOrderedJob (5.4) is what
+                // ends whatever this line describes.
+                Logger.Message(pawn.LabelShortCap + ": Go to Bed ordered - was "
+                    + DescribeCurrentActivity(pawn) + ".");
+
                 TrySendToBed(pawn);
             }
+        }
+
+        // Verse.AI.JobDriver.GetReport() is public virtual - confirmed
+        // 2026-09-19 against lib\Assembly-CSharp.dll. It falls back to the
+        // job def's own reportString when nothing overrides it. A pawn
+        // with no current job (idle) has no driver at all.
+        private static string DescribeCurrentActivity(Pawn pawn)
+        {
+            JobDriver driver = pawn.jobs?.curDriver;
+            return driver != null ? driver.GetReport() : "nothing in particular";
         }
 
         private static bool Qualifies(Pawn pawn)
