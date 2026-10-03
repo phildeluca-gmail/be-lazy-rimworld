@@ -19,10 +19,17 @@ namespace BeLazy.Joy
             // Cached once per call, not re-walked per pawn - same reasoning
             // as Do Not Be Lazy caching its sweep-eligible WorkGiverDef list.
             List<JoyGiverDef> givers = DefDatabase<JoyGiverDef>.AllDefsListForReading;
+            List<Pawn> pawnList = pawns as List<Pawn> ?? new List<Pawn>(pawns);
+
+            // One line per press, not per pawn - added 2026-09-28 alongside
+            // the alsoClickIfOtherInGroupClicked fix, so a press that still
+            // runs more than once (the fix failing, or a future regression)
+            // is visible from the log without counting "ordered" lines.
+            Logger.Message("Get Rec'd pressed for " + pawnList.Count + " pawns.");
 
             List<string> failed = null;
 
-            foreach (Pawn pawn in pawns)
+            foreach (Pawn pawn in pawnList)
             {
                 if (!Qualifies(pawn))
                 {
@@ -35,8 +42,11 @@ namespace BeLazy.Joy
                 Logger.Message(pawn.LabelShortCap + ": Get Rec'd ordered - was "
                     + DescribeCurrentActivity(pawn) + ".");
 
-                if (!TryRank(pawn, givers))
+                string orderId = Logger.OrderIssued(pawn, "Get Rec'd", "was " + DescribeCurrentActivity(pawn));
+
+                if (!TryRank(pawn, givers, orderId, out string outcome))
                 {
+                    Logger.OrderFailedToStart(orderId, pawn, outcome);
                     if (failed == null)
                     {
                         failed = new List<string>();
@@ -99,7 +109,7 @@ namespace BeLazy.Joy
         // state should get the same answer twice. No logging in this loop -
         // it runs per pawn per press, over up to a few dozen JoyGiverDefs,
         // and CLAUDE.md's standing rule is explicit about that shape.
-        private static bool TryRank(Pawn pawn, List<JoyGiverDef> givers)
+        private static bool TryRank(Pawn pawn, List<JoyGiverDef> givers, string orderId, out string outcome)
         {
             JoyToleranceSet tolerances = pawn.needs.joy.tolerances;
             var candidates = new List<(JoyGiverDef def, float weight)>();
@@ -129,11 +139,17 @@ namespace BeLazy.Joy
 
             candidates.Sort((a, b) => b.weight.CompareTo(a.weight));
 
+            // Counted for the one outcome line per pawn - not logged here,
+            // this loop runs per giver.
+            int noJob = 0;
+            int refused = 0;
+
             for (int i = 0; i < candidates.Count; i++)
             {
                 Job job = candidates[i].def.Worker.TryGiveJob(pawn);
                 if (job == null)
                 {
+                    noJob++;
                     continue;
                 }
 
@@ -150,10 +166,16 @@ namespace BeLazy.Joy
                     // JobDrivers (RimWorld.JobDriver_Reading, confirmed by
                     // decompiling) otherwise skip for a playerForced job.
                     JoyWatch.Watch(pawn);
+                    outcome = null;
+                    Logger.OrderStarted(orderId, pawn, job);
                     return true;
                 }
+
+                refused++;
             }
 
+            outcome = givers.Count + " joy givers, " + candidates.Count + " eligible, " + noJob
+                + " gave no job, " + refused + " refused by TryTakeOrderedJob";
             return false;
         }
     }

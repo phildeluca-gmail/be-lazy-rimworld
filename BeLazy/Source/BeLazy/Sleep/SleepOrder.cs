@@ -14,7 +14,15 @@ namespace BeLazy.Sleep
     {
         public static void Execute(IEnumerable<Pawn> pawns)
         {
-            foreach (Pawn pawn in pawns)
+            List<Pawn> pawnList = pawns as List<Pawn> ?? new List<Pawn>(pawns);
+
+            // One line per press, not per pawn - added 2026-09-28 alongside
+            // the alsoClickIfOtherInGroupClicked fix, so a press that still
+            // runs more than once (the fix failing, or a future regression)
+            // is visible from the log without counting "ordered" lines.
+            Logger.Message("Go to Bed pressed for " + pawnList.Count + " pawns.");
+
+            foreach (Pawn pawn in pawnList)
             {
                 if (!Qualifies(pawn))
                 {
@@ -28,7 +36,8 @@ namespace BeLazy.Sleep
                 Logger.Message(pawn.LabelShortCap + ": Go to Bed ordered - was "
                     + DescribeCurrentActivity(pawn) + ".");
 
-                TrySendToBed(pawn);
+                // One outcome line per pawn per press, added 2026-10-02.
+                TrySendToBed(pawn, Logger.OrderIssued(pawn, "Go to Bed", "was " + DescribeCurrentActivity(pawn)));
             }
         }
 
@@ -78,7 +87,7 @@ namespace BeLazy.Sleep
             return true;
         }
 
-        private static void TrySendToBed(Pawn pawn)
+        private static void TrySendToBed(Pawn pawn, string orderId)
         {
             Job job = BedFinder.FindTarget(pawn);
             if (job == null)
@@ -86,6 +95,7 @@ namespace BeLazy.Sleep
                 // The order failed for this pawn. bl-architecture.md 5.1
                 // records no on-screen message for a sleep failure - only
                 // "Get Rec'd" (decision 6) does.
+                Logger.OrderFailedToStart(orderId, pawn, "vanilla found neither a bed nor a ground spot");
                 return;
             }
 
@@ -104,6 +114,7 @@ namespace BeLazy.Sleep
             // could insert (5.4) - never EndCurrentJob.
             if (!pawn.jobs.TryTakeOrderedJob(job))
             {
+                Logger.OrderFailedToStart(orderId, pawn, "TryTakeOrderedJob refused " + job.def?.defName);
                 return;
             }
 
@@ -111,6 +122,8 @@ namespace BeLazy.Sleep
             {
                 ForceSleepWatch.Watch(pawn);
             }
+
+            Logger.OrderStarted(orderId, pawn, job);
         }
     }
 }
