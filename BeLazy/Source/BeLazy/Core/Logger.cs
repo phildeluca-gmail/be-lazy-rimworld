@@ -101,6 +101,8 @@ namespace BeLazy.Core
         }
 
         private static int orderCounter;
+        // 2026-10-04: counter restarts each launch; the HHmm stamp keeps ids unique across sessions.
+        private static readonly string launchStamp = System.DateTime.Now.ToString("HHmm");
 
         // Always on, whatever the verbose setting - the order record is
         // required (2026-10-02). Once per event, never per tick.
@@ -111,7 +113,7 @@ namespace BeLazy.Core
 
         public static string OrderIssued(Pawn pawn, string kind, string detail)
         {
-            string id = "BL-" + (++orderCounter);
+            string id = "BL-" + launchStamp + "-" + (++orderCounter);
             Order("ORDER " + id + " issued: " + pawn.LabelShortCap + " " + kind + " " + detail + " (" + Keys() + ")");
             return id;
         }
