@@ -100,17 +100,32 @@ namespace BeLazy.Core
             return text;
         }
 
+        // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
         private static int orderCounter;
         // 2026-10-04: counter restarts each launch; the HHmm stamp keeps ids unique across sessions.
+        // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
         private static readonly string launchStamp = System.DateTime.Now.ToString("HHmm");
 
         // Always on, whatever the verbose setting - the order record is
         // required (2026-10-02). Once per event, never per tick.
+        // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
         private static void Order(string text)
         {
             Log.Message(Prefix + text);
         }
 
+        // Verse.AI.JobDriver.GetReport() is public virtual - confirmed
+        // 2026-09-19 against lib\Assembly-CSharp.dll. It falls back to the
+        // job def's own reportString when nothing overrides it. A pawn
+        // with no current job (idle) has no driver at all. Shared by
+        // SleepOrder, JoyOrder and FoodOrder.
+        public static string DescribeCurrentActivity(Pawn pawn)
+        {
+            JobDriver driver = pawn.jobs?.curDriver;
+            return driver != null ? driver.GetReport() : "nothing in particular";
+        }
+
+        // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
         public static string OrderIssued(Pawn pawn, string kind, string detail)
         {
             string id = "BL-" + launchStamp + "-" + (++orderCounter);
@@ -118,6 +133,7 @@ namespace BeLazy.Core
             return id;
         }
 
+        // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
         public static void OrderFailedToStart(string id, Pawn pawn, string why)
         {
             Order("ORDER " + id + " ended (failed to start: " + why + "): " + pawn.LabelShortCap);
@@ -134,6 +150,7 @@ namespace BeLazy.Core
         // driver to hang it on, so the order is ended here as failed to
         // start - the one place an ended line cannot be promised to match a
         // job that later runs anyway.
+        // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
         public static void OrderStarted(string id, Pawn pawn, Job job)
         {
             Job cur = pawn.jobs?.curJob;
@@ -150,6 +167,7 @@ namespace BeLazy.Core
             string target = job.targetA.ToString();
             Order("ORDER " + id + " started: " + name + " " + job.def.defName + " " + target);
 
+            // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
             driver.AddFinishAction(condition =>
             {
                 string reason;
@@ -164,11 +182,6 @@ namespace BeLazy.Core
                 Order("ORDER " + id + " ended (" + reason + "): " + name + " " + job.def?.defName + " " + target
                     + " (" + condition + ")");
             });
-        }
-
-        public static void Warning(string text)
-        {
-            Log.Warning(Prefix + text);
         }
     }
 }

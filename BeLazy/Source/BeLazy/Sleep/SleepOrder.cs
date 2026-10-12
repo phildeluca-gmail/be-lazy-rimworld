@@ -34,21 +34,11 @@ namespace BeLazy.Sleep
                 // current job changes - TryTakeOrderedJob (5.4) is what
                 // ends whatever this line describes.
                 Logger.Message(pawn.LabelShortCap + ": Go to Bed ordered - was "
-                    + DescribeCurrentActivity(pawn) + ".");
+                    + Logger.DescribeCurrentActivity(pawn) + ".");
 
                 // One outcome line per pawn per press, added 2026-10-02.
-                TrySendToBed(pawn, Logger.OrderIssued(pawn, "Go to Bed", "was " + DescribeCurrentActivity(pawn)));
+                TrySendToBed(pawn, Logger.OrderIssued(pawn, "Go to Bed", "was " + Logger.DescribeCurrentActivity(pawn)));
             }
-        }
-
-        // Verse.AI.JobDriver.GetReport() is public virtual - confirmed
-        // 2026-09-19 against lib\Assembly-CSharp.dll. It falls back to the
-        // job def's own reportString when nothing overrides it. A pawn
-        // with no current job (idle) has no driver at all.
-        private static string DescribeCurrentActivity(Pawn pawn)
-        {
-            JobDriver driver = pawn.jobs?.curDriver;
-            return driver != null ? driver.GetReport() : "nothing in particular";
         }
 
         private static bool Qualifies(Pawn pawn)

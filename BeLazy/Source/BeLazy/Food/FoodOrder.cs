@@ -38,7 +38,7 @@ namespace BeLazy.Food
                     continue;
                 }
 
-                string was = DescribeCurrentActivity(pawn);
+                string was = Logger.DescribeCurrentActivity(pawn);
 
                 Job job = FoodFinder.TryFindBestFoodJob(pawn, out int candidateCount,
                     out float bestMoodEffect, out string declineReason, out string chosenLabel);
@@ -74,15 +74,6 @@ namespace BeLazy.Food
 
                 FoodWatch.Watch(pawn, job.loadID, pawn.needs.food.CurLevel);
             }
-        }
-
-        // Same helper SleepOrder and JoyOrder use -
-        // Verse.AI.JobDriver.GetReport() is public virtual, confirmed
-        // 2026-09-19 against lib\Assembly-CSharp.dll.
-        private static string DescribeCurrentActivity(Pawn pawn)
-        {
-            JobDriver driver = pawn.jobs?.curDriver;
-            return driver != null ? driver.GetReport() : "nothing in particular";
         }
 
         private static bool Qualifies(Pawn pawn)

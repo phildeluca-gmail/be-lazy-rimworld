@@ -40,9 +40,9 @@ namespace BeLazy.Joy
                 // ORDERED line. Fires once per qualifying pawn per press,
                 // before TryRank replaces whatever they were already doing.
                 Logger.Message(pawn.LabelShortCap + ": Get Rec'd ordered - was "
-                    + DescribeCurrentActivity(pawn) + ".");
+                    + Logger.DescribeCurrentActivity(pawn) + ".");
 
-                string orderId = Logger.OrderIssued(pawn, "Get Rec'd", "was " + DescribeCurrentActivity(pawn));
+                string orderId = Logger.OrderIssued(pawn, "Get Rec'd", "was " + Logger.DescribeCurrentActivity(pawn));
 
                 if (!TryRank(pawn, givers, orderId, out string outcome))
                 {
@@ -59,7 +59,7 @@ namespace BeLazy.Joy
             // Decision 6, read together with decision 21: one message for
             // the whole order, naming every pawn who got nothing - not one
             // per pawn and not one per giver.
-            if (failed != null && failed.Count > 0)
+            if (failed != null)
             {
                 Messages.Message(
                     "Get Rec'd found nothing for: " + string.Join(", ", failed) + ".",
@@ -90,15 +90,6 @@ namespace BeLazy.Joy
             }
 
             return pawn.needs?.joy != null;
-        }
-
-        // Same helper as SleepOrder's - Verse.AI.JobDriver.GetReport() is
-        // public virtual, confirmed 2026-09-19 against
-        // lib\Assembly-CSharp.dll.
-        private static string DescribeCurrentActivity(Pawn pawn)
-        {
-            JobDriver driver = pawn.jobs?.curDriver;
-            return driver != null ? driver.GetReport() : "nothing in particular";
         }
 
         // Exactly vanilla's own JobGiver_GetJoy.TryGiveJob ranking (3.14):
