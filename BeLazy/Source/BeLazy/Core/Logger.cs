@@ -126,10 +126,11 @@ namespace BeLazy.Core
         }
 
         // LOCKED (bl H1) - order id lifecycle passed 5x 2026-10-06; do not change without an explicit order.
-        public static string OrderIssued(Pawn pawn, string kind, string detail)
+        // withKeys false for the 2nd+ pawn of one press (2026-10-25): the input detail is identical, so it is written once.
+        public static string OrderIssued(Pawn pawn, string kind, string detail, bool withKeys = true)
         {
             string id = "BL-" + launchStamp + "-" + (++orderCounter);
-            Order("ORDER " + id + " issued: " + pawn.LabelShortCap + " " + kind + " " + detail + " (" + Keys() + ")");
+            Order("ORDER " + id + " issued: " + pawn.LabelShortCap + " " + kind + " " + detail + (withKeys ? " (" + Keys() + ")" : ""));
             return id;
         }
 

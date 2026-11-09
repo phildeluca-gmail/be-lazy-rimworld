@@ -28,6 +28,7 @@ namespace BeLazy.Joy
             Logger.Message("Get Rec'd pressed for " + pawnList.Count + " pawns.");
 
             List<string> failed = null;
+            bool firstOfPress = true;
 
             foreach (Pawn pawn in pawnList)
             {
@@ -36,13 +37,13 @@ namespace BeLazy.Joy
                     continue;
                 }
 
-                // ORDERED, bl-architecture.md 5.2a - mirrors SleepOrder's
-                // ORDERED line. Fires once per qualifying pawn per press,
+                // bl-architecture.md 5.2a. Once per qualifying pawn per press,
                 // before TryRank replaces whatever they were already doing.
-                Logger.Message(pawn.LabelShortCap + ": Get Rec'd ordered - was "
-                    + Logger.DescribeCurrentActivity(pawn) + ".");
-
-                string orderId = Logger.OrderIssued(pawn, "Get Rec'd", "was " + Logger.DescribeCurrentActivity(pawn));
+                // 2026-10-25: merged into the ORDER issued line so one
+                // precise line remains ("ordered to Get Rec'd - was X").
+                string orderId = Logger.OrderIssued(pawn, "ordered to Get Rec'd",
+                    "- was " + Logger.DescribeCurrentActivity(pawn), firstOfPress);
+                firstOfPress = false;
 
                 if (!TryRank(pawn, givers, orderId, out string outcome))
                 {

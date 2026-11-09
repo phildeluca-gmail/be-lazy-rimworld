@@ -31,6 +31,7 @@ namespace BeLazy.Food
             // "ordered" lines.
             Logger.Message("Go Eat pressed for " + pawnList.Count + " pawns.");
 
+            bool firstOfPress = true;
             foreach (Pawn pawn in pawnList)
             {
                 if (!Qualifies(pawn))
@@ -43,7 +44,12 @@ namespace BeLazy.Food
                 Job job = FoodFinder.TryFindBestFoodJob(pawn, out int candidateCount,
                     out float bestMoodEffect, out string declineReason, out string chosenLabel);
 
-                string orderId = Logger.OrderIssued(pawn, "Go Eat", "was " + was);
+                // 2026-10-25: the separate "ordered" line is merged in here,
+                // so the choice and mood ride on the ORDER issued line.
+                string chose = job == null ? "" : " - chose " + chosenLabel + ", mood " + bestMoodEffect.ToString("F1")
+                    + " (" + candidateCount + " candidate(s) considered)";
+                string orderId = Logger.OrderIssued(pawn, "ordered to Go Eat", "- was " + was + chose, firstOfPress);
+                firstOfPress = false;
 
                 if (job == null)
                 {
@@ -54,11 +60,6 @@ namespace BeLazy.Food
                         + " (" + candidateCount + " candidate(s) considered).");
                     continue;
                 }
-
-                // ORDERED, following 5.1a's pattern for the other two gizmos.
-                Logger.Message(pawn.LabelShortCap + ": Go Eat ordered - was " + was
-                    + " - chose " + chosenLabel + ", mood " + bestMoodEffect.ToString("F1")
-                    + " (" + candidateCount + " candidate(s) considered).");
 
                 // TryTakeOrderedJob sets playerForced itself (5.4) and
                 // enqueues this job ahead of anything the think tree could

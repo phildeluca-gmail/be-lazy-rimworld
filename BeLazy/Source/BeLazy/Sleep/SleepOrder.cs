@@ -22,6 +22,7 @@ namespace BeLazy.Sleep
             // is visible from the log without counting "ordered" lines.
             Logger.Message("Go to Bed pressed for " + pawnList.Count + " pawns.");
 
+            bool firstOfPress = true;
             foreach (Pawn pawn in pawnList)
             {
                 if (!Qualifies(pawn))
@@ -33,11 +34,12 @@ namespace BeLazy.Sleep
                 // qualifying pawn per press, before anything about their
                 // current job changes - TryTakeOrderedJob (5.4) is what
                 // ends whatever this line describes.
-                Logger.Message(pawn.LabelShortCap + ": Go to Bed ordered - was "
-                    + Logger.DescribeCurrentActivity(pawn) + ".");
-
-                // One outcome line per pawn per press, added 2026-10-02.
-                TrySendToBed(pawn, Logger.OrderIssued(pawn, "Go to Bed", "was " + Logger.DescribeCurrentActivity(pawn)));
+                // 2026-10-25: the separate "ordered" line was merged into the
+                // ORDER issued line.
+                string orderId = Logger.OrderIssued(pawn, "ordered to Go to Bed",
+                    "- was " + Logger.DescribeCurrentActivity(pawn), firstOfPress);
+                firstOfPress = false;
+                TrySendToBed(pawn, orderId);
             }
         }
 
