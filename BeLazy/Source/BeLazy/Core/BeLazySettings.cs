@@ -9,11 +9,13 @@ namespace BeLazy.Core
     public class BeLazySettings : ModSettings
     {
         public bool verboseLogging = true;
+        public bool bedAlertEnabled = true;
 
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref verboseLogging, "verboseLogging", true);
+            Scribe_Values.Look(ref bedAlertEnabled, "bedAlertEnabled", true);
 
             // Same trap RimWar Odds' settings hit - a saved "on" reads as
             // off until the settings window is opened unless it is synced
@@ -29,6 +31,9 @@ namespace BeLazy.Core
             listing.CheckboxLabeled("Verbose logging", ref verboseLogging,
                 "Writes [BeLazy] lines to the log. Off unless you're chasing something.");
             Logger.VerboseLogging = verboseLogging;
+
+            listing.CheckboxLabeled("Bed problems alert", ref bedAlertEnabled,
+                "Alert listing colonists on the current map with no owned bed, or one outdoors or on another map.");
 
             listing.End();
         }
