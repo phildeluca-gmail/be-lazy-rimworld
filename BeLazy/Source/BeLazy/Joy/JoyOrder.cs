@@ -37,6 +37,13 @@ namespace BeLazy.Joy
                     continue;
                 }
 
+                // 2026-11-17 (bl-architecture.md section 14): never cut off a
+                // pawn who is taking a drug.
+                if (Core.DrugGuard.HoldBack(pawn, "Get Rec'd"))
+                {
+                    continue;
+                }
+
                 // bl-architecture.md 5.2a. Once per qualifying pawn per press,
                 // before TryRank replaces whatever they were already doing.
                 // 2026-10-25: merged into the ORDER issued line so one

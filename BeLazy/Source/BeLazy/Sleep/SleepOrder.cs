@@ -30,6 +30,13 @@ namespace BeLazy.Sleep
                     continue;
                 }
 
+                // 2026-11-17 (bl-architecture.md section 14): never cut off a
+                // pawn who is taking a drug.
+                if (DrugGuard.HoldBack(pawn, "Go to Bed"))
+                {
+                    continue;
+                }
+
                 // ORDERED, bl-architecture.md 5.1a. Fires once per
                 // qualifying pawn per press, before anything about their
                 // current job changes - TryTakeOrderedJob (5.4) is what

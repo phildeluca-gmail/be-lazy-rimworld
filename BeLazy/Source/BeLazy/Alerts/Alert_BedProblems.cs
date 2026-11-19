@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Text;
 using BeLazy.Core;
+using BeLazy.UI;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace BeLazy.Alerts
@@ -19,13 +21,81 @@ namespace BeLazy.Alerts
 
         private readonly List<Pawn> culprits = new List<Pawn>();
         private readonly List<string> reasons = new List<string>();
+        // Plain-words problem per culprit for the window (no bed / bed on map X / bed outdoors).
+        private readonly List<string> windowText = new List<string>();
+        // Name per culprit, cached at recompute so the window allocates nothing per frame.
+        private readonly List<string> windowNames = new List<string>();
         private int lastComputeTick = -99999;
-        private int lastLoggedCount = -1;
         private Map lastMap;
+        // Last logged set per map, keyed by Map.uniqueID, then by pawn
+        // thingIDNumber -> (name, reason). Ints and strings only, so a pawn
+        // or map that is gone later holds no reference. Per map, so flipping
+        // between maps logs nothing unless that map's set really changed.
+        private readonly Dictionary<int, Dictionary<int, KeyValuePair<string, string>>> loggedByMap
+            = new Dictionary<int, Dictionary<int, KeyValuePair<string, string>>>();
 
         public Alert_BedProblems()
         {
             defaultPriority = AlertPriority.Medium;
+        }
+
+        public int EntryCount { get { return culprits.Count; } }
+
+        public Pawn EntryPawn(int i)
+        {
+            return i < culprits.Count ? culprits[i] : null;
+        }
+
+        public string EntryName(int i)
+        {
+            return i < windowNames.Count ? windowNames[i] : "";
+        }
+
+        // Rebuilds the list now rather than on the 250-tick clock, so the
+        // window sees a bed assigned while the game is paused. Called by the
+        // window at most every 30 frames, never per frame.
+        public void RefreshNow()
+        {
+            if (BeLazyMod.Settings == null || !BeLazyMod.Settings.bedAlertEnabled)
+            {
+                ClearLists();
+                return;
+            }
+            Map map = Find.CurrentMap;
+            lastMap = map;
+            lastComputeTick = Find.TickManager.TicksGame;
+            Recompute(map);
+        }
+
+        private void ClearLists()
+        {
+            culprits.Clear();
+            reasons.Clear();
+            windowText.Clear();
+            windowNames.Clear();
+        }
+
+        public string EntryProblem(int i)
+        {
+            return i < windowText.Count ? windowText[i] : "";
+        }
+
+        // Left click opens the window (bl-architecture.md 15.4); right click
+        // keeps vanilla's backwards cycle. OnClick is protected virtual on
+        // Alert (verified 2026-11-18), so no Harmony patch.
+        protected override void OnClick()
+        {
+            Event e = Event.current;
+            if (e != null && e.button == 1)
+            {
+                base.OnClick();
+                return;
+            }
+            if (Find.WindowStack.IsOpen<BedProblemsWindow>())
+            {
+                return;
+            }
+            Find.WindowStack.Add(new BedProblemsWindow(this));
         }
 
         public override string GetLabel()
@@ -47,7 +117,8 @@ namespace BeLazy.Alerts
         {
             if (BeLazyMod.Settings == null || !BeLazyMod.Settings.bedAlertEnabled)
             {
-                culprits.Clear();
+                ClearLists();
+                loggedByMap.Clear();
                 return AlertReport.Inactive;
             }
 
@@ -65,8 +136,7 @@ namespace BeLazy.Alerts
 
         private void Recompute(Map map)
         {
-            culprits.Clear();
-            reasons.Clear();
+            ClearLists();
             if (map != null)
             {
                 foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
@@ -93,17 +163,123 @@ namespace BeLazy.Alerts
                     {
                         culprits.Add(pawn);
                         reasons.Add(reason);
+                        windowText.Add(WindowText(pawn, map));
+                        windowNames.Add(pawn.LabelShortCap ?? ("pawn " + pawn.thingIDNumber));
                     }
                 }
             }
 
-            // Once per change of count, at most once per recompute (250 ticks).
-            if (culprits.Count != lastLoggedCount)
+            LogChanges(map);
+        }
+
+        // Logs only when the set of problem pawns on this map changed since
+        // that map's last line (never on an unchanged 250-tick recompute):
+        // tick, map, new total, and each pawn ADDED, REMOVED or CHANGED (same
+        // pawn, different reason) as "name - reason". Runs from Recompute only.
+        private void LogChanges(Map map)
+        {
+            if (map == null)
             {
-                lastLoggedCount = culprits.Count;
-                Logger.Message("Bed problems alert: " + culprits.Count + " on " + (map == null ? "no map" : map.ToString())
-                    + (culprits.Count > 0 ? " (" + string.Join(", ", reasons.ConvertAll(r => r).ToArray()) + ")" : ""));
+                return;
             }
+
+            Dictionary<int, KeyValuePair<string, string>> previous;
+            if (!loggedByMap.TryGetValue(map.uniqueID, out previous))
+            {
+                previous = new Dictionary<int, KeyValuePair<string, string>>();
+            }
+
+            var current = new Dictionary<int, KeyValuePair<string, string>>();
+            var added = new List<string>();
+            var changed = new List<string>();
+            for (int i = 0; i < culprits.Count; i++)
+            {
+                Pawn pawn = culprits[i];
+                string name = pawn.LabelShortCap ?? ("pawn " + pawn.thingIDNumber);
+                string detail = Detail(pawn, reasons[i], map);
+                current[pawn.thingIDNumber] = new KeyValuePair<string, string>(name, detail);
+                KeyValuePair<string, string> before;
+                if (!previous.TryGetValue(pawn.thingIDNumber, out before))
+                {
+                    added.Add(name + " - " + detail);
+                }
+                else if (before.Value != detail)
+                {
+                    changed.Add(name + " - " + before.Value + " -> " + detail);
+                }
+            }
+            var removed = new List<string>();
+            foreach (KeyValuePair<int, KeyValuePair<string, string>> kv in previous)
+            {
+                if (!current.ContainsKey(kv.Key))
+                {
+                    removed.Add(kv.Value.Key + " - " + kv.Value.Value);
+                }
+            }
+
+            loggedByMap[map.uniqueID] = current;
+            PruneGoneMaps();
+            if (added.Count == 0 && removed.Count == 0 && changed.Count == 0)
+            {
+                return;
+            }
+            Core.Logger.Message("Bed problems alert: tick " + Find.TickManager.TicksGame + ", " + map
+                + ", total " + culprits.Count
+                + ", added " + added.Count + " [" + string.Join("; ", added.ToArray()) + "]"
+                + ", removed " + removed.Count + " [" + string.Join("; ", removed.ToArray()) + "]"
+                + ", changed " + changed.Count + " [" + string.Join("; ", changed.ToArray()) + "]");
+        }
+
+        // Drops the memory of maps that no longer exist (abandoned, destroyed).
+        private void PruneGoneMaps()
+        {
+            if (loggedByMap.Count <= 1 || Find.Maps == null)
+            {
+                return;
+            }
+            var live = new HashSet<int>();
+            foreach (Map m in Find.Maps)
+            {
+                live.Add(m.uniqueID);
+            }
+            var gone = new List<int>();
+            foreach (int id in loggedByMap.Keys)
+            {
+                if (!live.Contains(id))
+                {
+                    gone.Add(id);
+                }
+            }
+            for (int i = 0; i < gone.Count; i++)
+            {
+                loggedByMap.Remove(gone[i]);
+            }
+        }
+
+        // Log-only detail; the alert's own reason text is unchanged.
+        private static string Detail(Pawn pawn, string reason, Map map)
+        {
+            Building_Bed bed = pawn.ownership?.OwnedBed;
+            if (bed != null && bed.Map != map)
+            {
+                return reason + " (bed " + (bed.LabelShort ?? "?") + " " + bed.Position + " on " + (bed.Map == null ? "no map" : bed.Map.ToString()) + ")";
+            }
+            return reason;
+        }
+
+        private static string WindowText(Pawn pawn, Map map)
+        {
+            Building_Bed bed = pawn.ownership?.OwnedBed;
+            if (bed == null)
+            {
+                return "no bed";
+            }
+            if (bed.Map != map)
+            {
+                string where = bed.Map == null ? "no map" : (bed.Map.Parent?.LabelCap.ToString() ?? bed.Map.ToString());
+                return "bed on map " + where;
+            }
+            return "bed outdoors";
         }
 
         private static string Problem(Pawn pawn, Map map)
