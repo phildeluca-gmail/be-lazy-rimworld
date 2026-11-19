@@ -12,14 +12,14 @@ namespace BeLazy.UI
     // walks down the list, closes by X / Escape or when nothing is flagged.
     // Reads the alert's own lists directly (rebuilt by the alert at most
     // every 250 ticks), so there is no per-frame allocation.
-    // Room for a Fix all button: the bottom strip (FooterH) is reserved
-    // and empty; the button is pending (Q67/Q74).
+    // Bottom strip (FooterH) holds the Make arrangements button (section 15.1 step 3),
+    // which opens FixAllPreviewWindow.
     public class BedProblemsWindow : Window
     {
         private const float RowH = 28f;
         private const float JumpW = 60f;
         private const float NameW = 130f;
-        private const float FooterH = 0f;
+        private const float FooterH = 40f;
         private const int RefreshFrames = 30;
 
         private readonly Alert_BedProblems alert;
@@ -94,6 +94,15 @@ namespace BeLazy.UI
                 y += RowH;
             }
             Widgets.EndScrollView();
+
+            // Width follows the label so a longer name or a larger font never clips it.
+            float fixW = Mathf.Max(140f, Text.CalcSize("Make arrangements").x + 24f);
+            if (Widgets.ButtonText(new Rect(inRect.x, inRect.yMax - 34f, fixW, 32f), "Make arrangements")
+                && !Find.WindowStack.IsOpen<FixAllPreviewWindow>())
+            {
+                Core.Logger.Message("Make arrangements pressed (" + count + " pawns flagged)");
+                Find.WindowStack.Add(new FixAllPreviewWindow(alert));
+            }
         }
 
         public override void PostClose()
