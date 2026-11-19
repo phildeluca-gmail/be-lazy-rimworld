@@ -1,5 +1,6 @@
 using BeLazy.Alerts;
 using BeLazy.Core;
+using BeLazy.Sleep;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -18,6 +19,7 @@ namespace BeLazy.UI
     {
         private const float RowH = 28f;
         private const float JumpW = 60f;
+        private const float FixW = 46f;
         private const float NameW = 130f;
         private const float FooterH = 40f;
         private const int RefreshFrames = 30;
@@ -26,6 +28,7 @@ namespace BeLazy.UI
         private Vector2 scroll;
         private string closeReason = "closed by player";
         private int lastRefreshFrame = -9999;
+        private Pawn fixPawn;
 
         public BedProblemsWindow(Alert_BedProblems alert)
         {
@@ -39,7 +42,7 @@ namespace BeLazy.UI
             forcePause = false;
         }
 
-        public override Vector2 InitialSize => new Vector2(480f, 360f);
+        public override Vector2 InitialSize => new Vector2(540f, 360f);
 
         public override void PostOpen()
         {
@@ -81,19 +84,57 @@ namespace BeLazy.UI
                 if (pawn != null)
                 {
                     Widgets.Label(new Rect(0f, y, NameW, RowH), alert.EntryName(i));
-                    Widgets.Label(new Rect(NameW, y, viewRect.width - NameW - JumpW - 4f, RowH), alert.EntryProblem(i));
+                    Widgets.Label(new Rect(NameW, y, viewRect.width - NameW - JumpW - FixW - 8f, RowH), alert.EntryProblem(i));
                     // A pawn that died or was destroyed since the last rescan
-                    // gets no button: CameraJumper would have nothing to land on.
-                    if (!pawn.Dead && !pawn.Destroyed
-                        && Widgets.ButtonText(new Rect(viewRect.width - JumpW, y, JumpW, RowH - 2f), "Jump"))
+                    // gets no buttons: CameraJumper would have nothing to land on.
+                    if (!pawn.Dead && !pawn.Destroyed)
                     {
-                        CameraJumper.TryJumpAndSelect(pawn);
-                        Core.Logger.Message("Bed problems window: jumped to " + pawn.LabelShort);
+                        if (Widgets.ButtonText(new Rect(viewRect.width - JumpW - FixW - 4f, y, JumpW, RowH - 2f), "Jump"))
+                        {
+                            // Problem bed first (its map may be another one); the pawn when it has no bed.
+                            Building_Bed bed = pawn.ownership?.OwnedBed;
+                            if (bed != null && bed.Spawned)
+                            {
+                                CameraJumper.TryJump(bed);
+                                Core.Logger.Message("Bed problems window: jumped to the bed of " + pawn.LabelShort + " at " + bed.Position
+                                    + " on " + BedFixer.MapText(bed.Map));
+                            }
+                            else
+                            {
+                                CameraJumper.TryJumpAndSelect(pawn);
+                                Core.Logger.Message("Bed problems window: jumped to " + pawn.LabelShort + " (no bed)");
+                            }
+                        }
+                        if (Widgets.ButtonText(new Rect(viewRect.width - FixW, y, FixW, RowH - 2f), "Fix"))
+                        {
+                            fixPawn = pawn;
+                        }
                     }
                 }
                 y += RowH;
             }
             Widgets.EndScrollView();
+
+            // Run after the list loop: the fix refreshes the alert's lists.
+            if (fixPawn != null)
+            {
+                Pawn target = fixPawn;
+                fixPawn = null;
+                Core.Logger.Message("Bed problems window: Fix pressed for " + target.LabelShort);
+                Map fixMap = Find.CurrentMap;
+                if (target.Map != fixMap)
+                {
+                    Core.Logger.Message("Fix skipped for " + target.LabelShort + ": the pawn is not on the current map");
+                    Messages.Message(target.LabelShort + ": not fixed, the pawn is not on the current map", MessageTypeDefOf.RejectInput, false);
+                }
+                else
+                {
+                    string result = BedFixer.RunFor(alert, fixMap, target);
+                    Messages.Message(target.LabelShort + ": " + result, MessageTypeDefOf.NeutralEvent, false);
+                }
+                lastRefreshFrame = -9999;
+                return;
+            }
 
             // Width follows the label so a longer name or a larger font never clips it.
             float fixW = Mathf.Max(140f, Text.CalcSize("Make arrangements").x + 24f);

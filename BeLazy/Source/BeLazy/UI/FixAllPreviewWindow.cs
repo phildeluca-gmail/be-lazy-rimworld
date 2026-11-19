@@ -69,10 +69,15 @@ namespace BeLazy.UI
             for (int i = 0; i < rows.Count; i++)
             {
                 BedFixer.Row r = rows[i];
-                string line1 = r.PawnName + ": " + (r.NewBed != null
+                string line1 = r.PawnName + (r.IsKicked ? " (kicked)" : "") + ": " + (r.NewBed != null
                     ? "new bed " + (r.NewBed.LabelShort ?? "bed") + " " + r.NewBed.Position
                     : "not fixed, " + r.Why);
-                string line2 = "claim lost: " + (r.OldBed != null && r.NewBed != null ? r.OldBedText : "none");
+                string line2 = "claim lost: " + (r.OldBed != null && (r.NewBed != null || r.IsKicked) ? r.OldBedText : "none");
+                if (r.KickRow != null)
+                {
+                    line2 += "; kicks " + r.KickRow.PawnName + " to "
+                        + (r.KickRow.NewBed != null ? (r.KickRow.NewBed.LabelShort ?? "bed") + " " + r.KickRow.NewBed.Position : "no free bed");
+                }
                 Widgets.Label(new Rect(0f, y, viewRect.width, RowH / 2f), line1);
                 Widgets.Label(new Rect(12f, y + RowH / 2f - 2f, viewRect.width - 12f, RowH / 2f), line2);
                 y += RowH;
